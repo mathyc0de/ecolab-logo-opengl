@@ -5,14 +5,15 @@
 
 #include <string.h>
 
-#define WORDMARK_MAX_PIXELS 2048
-#define WORDMARK_GRID_W 96
-#define WORDMARK_GRID_H 24
-#define WORDMARK_ADVANCE 7
+#define WORDMARK_MAX_PIXELS 4096
+#define WORDMARK_GRID_W 128
+#define WORDMARK_GRID_H 22
+#define WORDMARK_BRUSH 1
 
 typedef struct {
     const int (*seg)[4];
     int count;
+    int advance;
 } Glyph;
 
 typedef struct {
@@ -22,64 +23,96 @@ typedef struct {
     int count;
 } PixelList;
 
-/* Glifos numa grade 5 por 7. x cresce para a direita, y para cima. */
+/* Contorno das letras. y pra cima. Cada segmento passamos no Bresenham/DDA. */
+
 static const int seg_e[][4] = {
-    {0, 6, 4, 6},
-    {4, 6, 4, 3},
-    {4, 3, 0, 3},
-    {0, 6, 0, 0},
-    {0, 0, 4, 0},
+    {1, 8, 13, 8},
+    {13, 8, 13, 12},
+    {13, 12, 11, 14},
+    {11, 14, 7, 15},
+    {7, 15, 3, 14},
+    {3, 14, 1, 12},
+    {1, 12, 0, 8},
+    {0, 8, 1, 4},
+    {1, 4, 3, 2},
+    {3, 2, 7, 1},
+    {7, 1, 11, 2},
 };
 
 static const int seg_minus[][4] = {
-    {0, 3, 4, 3},
+    {1, 8, 8, 8},
 };
 
 static const int seg_c[][4] = {
-    {4, 6, 0, 6},
-    {0, 6, 0, 0},
-    {0, 0, 4, 0},
+    {11, 14, 7, 15},
+    {7, 15, 3, 14},
+    {3, 14, 1, 12},
+    {1, 12, 0, 8},
+    {0, 8, 1, 4},
+    {1, 4, 3, 2},
+    {3, 2, 7, 1},
+    {7, 1, 11, 2},
 };
 
 static const int seg_o[][4] = {
-    {0, 0, 4, 0},
-    {4, 0, 4, 6},
-    {4, 6, 0, 6},
-    {0, 6, 0, 0},
+    {14, 8, 13, 12},
+    {13, 12, 11, 14},
+    {11, 14, 7, 15},
+    {7, 15, 3, 14},
+    {3, 14, 1, 12},
+    {1, 12, 0, 8},
+    {0, 8, 1, 4},
+    {1, 4, 3, 2},
+    {3, 2, 7, 1},
+    {7, 1, 11, 2},
+    {11, 2, 13, 4},
+    {13, 4, 14, 8},
 };
 
 static const int seg_l[][4] = {
-    {0, 6, 0, 0},
-    {0, 0, 4, 0},
+    {3, 16, 3, 1},
 };
 
 static const int seg_a[][4] = {
-    {4, 0, 4, 6},
-    {0, 4, 4, 4},
-    {0, 4, 0, 0},
-    {0, 0, 4, 0},
-    {0, 2, 4, 2},
+    {12, 8, 11, 11},
+    {11, 11, 9, 13},
+    {9, 13, 6, 14},
+    {6, 14, 3, 13},
+    {3, 13, 1, 11},
+    {1, 11, 0, 8},
+    {0, 8, 1, 5},
+    {1, 5, 3, 3},
+    {3, 3, 6, 2},
+    {6, 2, 9, 3},
+    {9, 3, 11, 5},
+    {11, 5, 12, 8},
+    {12, 8, 12, 1},
 };
 
 static const int seg_b[][4] = {
-    {0, 0, 0, 6},
-    {0, 6, 4, 6},
-    {4, 6, 4, 3},
-    {4, 3, 0, 3},
-    {0, 0, 4, 0},
-    {4, 0, 4, 3},
+    {2, 16, 2, 1},
+    {2, 12, 5, 14},
+    {5, 14, 8, 14},
+    {8, 14, 11, 12},
+    {11, 12, 13, 10},
+    {13, 10, 14, 7},
+    {14, 7, 13, 4},
+    {13, 4, 11, 2},
+    {11, 2, 8, 1},
+    {8, 1, 5, 1},
+    {5, 1, 2, 3},
 };
 
-#define GLYPH(arr) { arr, (int)(sizeof(arr) / sizeof((arr)[0])) }
+#define GLYPH(arr, adv) { arr, (int)(sizeof(arr) / sizeof((arr)[0])), adv }
 
 static const Glyph kWord[] = {
-    GLYPH(seg_e),
-    GLYPH(seg_minus),
-    GLYPH(seg_c),
-    GLYPH(seg_o),
-    GLYPH(seg_l),
-    GLYPH(seg_a),
-    GLYPH(seg_b),
+    GLYPH(seg_e, 17),
+    GLYPH(seg_minus, 11),
+    GLYPH(seg_c, 17),
+    GLYPH(seg_o, 17),
+    GLYPH(seg_l, 10),
+    GLYPH(seg_a, 17),
+    GLYPH(seg_b, 17),
 };
 
 static int g_use_dda = 0;
@@ -95,10 +128,8 @@ const char *wordmark_toggle_algorithm(void)
     return wordmark_algorithm_name();
 }
 
-static void plot_store(int x, int y, void *user)
+static void plot_dot(int x, int y, PixelList *list)
 {
-    PixelList *list = (PixelList *)user;
-
     if (x < 0 || y < 0 || x >= WORDMARK_GRID_W || y >= WORDMARK_GRID_H) {
         return;
     }
@@ -115,13 +146,31 @@ static void plot_store(int x, int y, void *user)
     list->count++;
 }
 
+static void plot_store(int x, int y, void *user)
+{
+    /* Engrosso o traço em volta do pixel que o algoritmo marcou. */
+    PixelList *list = (PixelList *)user;
+    int dx;
+    int dy;
+
+    for (dy = -WORDMARK_BRUSH; dy <= WORDMARK_BRUSH; dy++) {
+        for (dx = -WORDMARK_BRUSH; dx <= WORDMARK_BRUSH; dx++) {
+            if (dx * dx + dy * dy > WORDMARK_BRUSH * WORDMARK_BRUSH + 1) {
+                continue;
+            }
+            plot_dot(x + dx, y + dy, list);
+        }
+    }
+}
+
 static void rasterize_word(PixelList *list)
 {
     int glyph_index;
-    int pen_x = 0;
+    int pen_x = 2;
     void (*line)(int, int, int, int, PlotFn, void *);
 
     memset(list, 0, sizeof(*list));
+    /* Tecla D troca o algoritmo. Os dois são nossos, em bresenham.c. */
     line = g_use_dda ? dda_line : bresenham_line;
 
     for (glyph_index = 0; glyph_index < (int)(sizeof(kWord) / sizeof(kWord[0]));
@@ -134,7 +183,7 @@ static void rasterize_word(PixelList *list)
                  pen_x + glyph->seg[s][2], glyph->seg[s][3],
                  plot_store, list);
         }
-        pen_x += WORDMARK_ADVANCE;
+        pen_x += glyph->advance;
     }
 }
 
@@ -159,19 +208,53 @@ void wordmark_draw(float center_x, float baseline_y, float pixel_size,
     }
 
     ox = center_x - (float)(max_x + 1) * pixel_size * 0.5f;
-    cell = pixel_size * 0.88f;
+    cell = pixel_size * 0.92f;
 
     glColor3f(r, g, b);
-    glNormal3f(0.f, 0.f, 1.f);
     glBegin(GL_QUADS);
     for (i = 0; i < list.count; i++) {
-        float x = ox + (float)list.xs[i] * pixel_size;
-        float y = baseline_y + (float)list.ys[i] * pixel_size;
+        float x0 = ox + (float)list.xs[i] * pixel_size;
+        float y0 = baseline_y + (float)list.ys[i] * pixel_size;
+        float x1 = x0 + cell;
+        float y1 = y0 + cell;
+        float z0 = 0.f;
+        float z1 = cell * 0.40f;
 
-        glVertex3f(x, y, 0.f);
-        glVertex3f(x + cell, y, 0.f);
-        glVertex3f(x + cell, y + cell, 0.f);
-        glVertex3f(x, y + cell, 0.f);
+        glNormal3f(0.f, 0.f, 1.f);
+        glVertex3f(x0, y0, z1);
+        glVertex3f(x1, y0, z1);
+        glVertex3f(x1, y1, z1);
+        glVertex3f(x0, y1, z1);
+
+        glNormal3f(0.f, 0.f, -1.f);
+        glVertex3f(x1, y0, z0);
+        glVertex3f(x0, y0, z0);
+        glVertex3f(x0, y1, z0);
+        glVertex3f(x1, y1, z0);
+
+        glNormal3f(0.f, -1.f, 0.f);
+        glVertex3f(x0, y0, z0);
+        glVertex3f(x1, y0, z0);
+        glVertex3f(x1, y0, z1);
+        glVertex3f(x0, y0, z1);
+
+        glNormal3f(0.f, 1.f, 0.f);
+        glVertex3f(x0, y1, z1);
+        glVertex3f(x1, y1, z1);
+        glVertex3f(x1, y1, z0);
+        glVertex3f(x0, y1, z0);
+
+        glNormal3f(-1.f, 0.f, 0.f);
+        glVertex3f(x0, y0, z0);
+        glVertex3f(x0, y0, z1);
+        glVertex3f(x0, y1, z1);
+        glVertex3f(x0, y1, z0);
+
+        glNormal3f(1.f, 0.f, 0.f);
+        glVertex3f(x1, y0, z1);
+        glVertex3f(x1, y0, z0);
+        glVertex3f(x1, y1, z0);
+        glVertex3f(x1, y1, z1);
     }
     glEnd();
 }

@@ -21,7 +21,7 @@ void mat4_multiply(float out[16], const float a[16], const float b[16])
     int col;
     int row;
 
-    /* out = a * b, com vetores coluna à direita: (a*b)*v = a*(b*v). */
+    /* Multiplicamos a*b com a coluna à direita, como a OpenGL faz. */
     for (col = 0; col < 4; col++) {
         for (row = 0; row < 4; row++) {
             r[col * 4 + row] =
@@ -59,7 +59,6 @@ void mat4_make_rotation_x(float m[16], float radians)
     float s = sinf(radians);
 
     mat4_identity(m);
-    /* Linha 1: 0 c -s ; linha 2: 0 s c. */
     m[5] = c;
     m[6] = s;
     m[9] = -s;
@@ -84,7 +83,6 @@ void mat4_make_rotation_z(float m[16], float radians)
     float s = sinf(radians);
 
     mat4_identity(m);
-    /* Rotação anti-horária olhando no sentido contrário de +Z. */
     m[0] = c;
     m[1] = s;
     m[4] = -s;
@@ -101,11 +99,7 @@ void mat4_make_perspective(float m[16], float fovy_rad, float aspect,
         m[i] = 0.f;
     }
 
-    /*
-     * Mesma matriz do gluPerspective. O -1 em m[11] copia -z_eye para w.
-     * Depois do vértice sair do vertex shader fixo, a GPU divide x, y, z
-     * por w: é essa divisão que faz o que está longe parecer menor.
-     */
+    /* Montamos a perspectiva na mão. m[11]=-1 manda -z para w, aí a GPU divide. */
     m[0] = f / aspect;
     m[5] = f;
     m[10] = (zfar + znear) / (znear - zfar);
@@ -156,5 +150,5 @@ void mat4_print(const char *name, const float m[16])
 
 void apply_matrix(const float m[16])
 {
-    glMultMatrixf(m);
+    glMultMatrixf(m); /* é por aqui que a matriz nossa entra na OpenGL */
 }

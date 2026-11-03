@@ -5,12 +5,12 @@
 
 #include <math.h>
 
-#define PETAL_RINGS 18
+#define PETAL_RINGS 20
 #define PETAL_STRANDS 3
-#define PETAL_SEGMENTS 80
-#define PETAL_SLICES 7
-#define PETAL_TUBE_RADIUS 0.0043f
-#define PETAL_DEPTH 0.34f
+#define PETAL_SEGMENTS 96
+#define PETAL_SLICES 9
+#define PETAL_TUBE_RADIUS 0.0082f
+#define PETAL_DEPTH 0.50f
 
 static void normalize3(float *x, float *y, float *z)
 {
@@ -140,8 +140,11 @@ static void draw_vortex_turn(float rx, float ry, float z0, float z1, float radiu
     }
 }
 
-static float remap_ring(float t, float exponent, int ring)
+static float remap_ring(float t, float exponent, int ring, float phase)
 {
+    float clustered;
+    float uniform;
+    float mid;
     float v;
     float wobble;
 
@@ -151,9 +154,15 @@ static float remap_ring(float t, float exponent, int ring)
     if (t > 1.f) {
         t = 1.f;
     }
-    v = powf(t, exponent); /* mudamos o vão: uns anéis juntos no miolo, outros na borda */
-    wobble = 0.016f * sinf((float)ring * 2.15f + exponent * 3.7f);
-    v += wobble * v * (1.f - v);
+    /* exponent > 1: miolo junto, borda folgada. */
+    clustered = powf(t, exponent);
+    uniform = t;
+    mid = sinf(t * MATH3D_PI);
+    mid = mid * mid;
+    v = clustered * (1.f - 0.62f * mid) + uniform * (0.62f * mid);
+    wobble = 0.022f * sinf(t * 8.4f * MATH3D_PI + phase)
+           + 0.012f * sinf((float)ring * 1.67f + exponent);
+    v += wobble * v * (1.f - v) * (1.f - 0.8f * mid);
     if (v < 0.f) {
         v = 0.f;
     }
@@ -185,25 +194,26 @@ static void draw_strand(const float dark[3], const float light[3],
             u1 = 1.f;
         }
 
-        v0 = remap_ring(u0, exponent, ring);
-        v1 = remap_ring(u1, exponent, ring + 1);
-        if (v1 < v0 + 0.012f) {
-            v1 = v0 + 0.012f;
+        v0 = remap_ring(u0, exponent, ring, u_offset * 5.1f);
+        v1 = remap_ring(u1, exponent, ring + 1, u_offset * 5.1f);
+        if (v1 < v0 + 0.006f) {
+            v1 = v0 + 0.006f;
         }
 
-        rx = 0.05f + v0 * 0.275f;
-        ry = 0.092f + v0 * 0.50f;
+        /* Oval da foto: alongada no eixo da pétala, mas não um fio. */
+        rx = 0.058f + v0 * 0.29f;
+        ry = 0.090f + v0 * 0.46f;
         /* Recuamos o miolo e defasamos as mechas pra elas se cruzarem. */
-        z0 = -PETAL_DEPTH * (1.f - v0) + (u_offset - 0.5f) * 0.05f;
-        z1 = -PETAL_DEPTH * (1.f - v1) + (u_offset - 0.5f) * 0.05f;
+        z0 = -PETAL_DEPTH * powf(1.f - v0, 0.72f) + (u_offset - 0.5f) * 0.06f;
+        z1 = -PETAL_DEPTH * powf(1.f - v1, 0.72f) + (u_offset - 0.5f) * 0.06f;
         draw_vortex_turn(rx, ry, z0, z1, PETAL_TUBE_RADIUS, dark, light, v0);
     }
 }
 
 void petal_draw(const float dark[3], const float light[3])
 {
-    /* Três ritmos de espaçamento, como na foto os anéis não são iguais. */
-    static const float kExp[PETAL_STRANDS] = {1.48f, 1.05f, 0.72f};
+    /* Todos > 1: fora mais espaçado, vai concentrando no miolo. */
+    static const float kExp[PETAL_STRANDS] = {2.15f, 1.75f, 1.38f};
     int strand;
 
     for (strand = 0; strand < PETAL_STRANDS; strand++) {

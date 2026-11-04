@@ -2,19 +2,8 @@
 #define MATH3D_H
 
 /*
- * Matrizes 4x4 no layout column-major da OpenGL (o mesmo de glMultMatrixf).
- *
- * Num caderno a matriz aparece por linhas. Na memória, a OpenGL guarda
- * por colunas. O elemento da linha r e coluna c está em m[c * 4 + r]:
- *
- *   m[0]  m[4]  m[8]  m[12]
- *   m[1]  m[5]  m[9]  m[13]
- *   m[2]  m[6]  m[10] m[14]
- *   m[3]  m[7]  m[11] m[15]
- *
- * Cada função make_* preenche a matriz do zero. Nenhuma delas acumula
- * em cima de uma matriz anterior: a composição é mat4_multiply, ou uma
- * sequência de apply_matrix (glMultMatrixf).
+ * Matrizes 4x4 nossas, iguais às da OpenGL (coluna na memória).
+ * Linha r, coluna c: m[c*4+r]. apply_matrix manda isso no glMultMatrixf.
  */
 
 #define MATH3D_PI 3.14159265358979323846f
@@ -36,10 +25,7 @@ void mat4_make_ortho(float m[16], float left, float right, float bottom,
 void mat4_transform_point(const float m[16], float x, float y, float z,
                           float *ox, float *oy, float *oz);
 
-/* Imprime em linhas matemáticas, para comparar com o caderno. */
 void mat4_print(const char *name, const float m[16]);
-
-/* Multiplica a matriz corrente (projeção ou modelview). */
-void apply_matrix(const float m[16]);
+void apply_matrix(const float m[16]); /* aqui aplicamos a matriz na OpenGL */
 
 #endif

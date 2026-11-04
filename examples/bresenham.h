@@ -1,11 +1,7 @@
 #ifndef BRESENHAM_H
 #define BRESENHAM_H
 
-/*
- * Rasterização de segmento. As duas funções só produzem pixels inteiros;
- * quem chama decide o que fazer com cada pixel (aqui, um quadradinho 3D).
- * Nenhuma das duas usa GL_LINES: o algoritmo tem de ser nosso.
- */
+/* Raster nosso. Não usamos GL_LINES; cada pixel vai num callback. */
 
 typedef void (*PlotFn)(int x, int y, void *user);
 

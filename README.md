@@ -17,4 +17,4 @@ No MSYS2, o passo a passo e a linha direta do `gcc` estão no plano. O executáv
 
 ## Teclas
 
-Setas orbitam. `F` vista frontal. `P` / `O` perspectiva e ortogonal. `W` aramado. `G` Gouraud. `L` luz. `D` Bresenham ou DDA. `Z` Z-buffer. `+` / `-` escala das pétalas. Espaço gira sozinho. `M` imprime as matrizes. Esc sai.
+Arraste o mouse ou use as setas para orbitar. Roda do mouse, `[` `]` ou Page Up/Down dão zoom. `1`/`F` frente, `2` 3/4, `3` lado, `4` cima, `R` reinicia. `P` / `O` perspectiva e ortogonal. `W` aramado. `G` Gouraud. `L` luz. `D` Bresenham ou DDA. `Z` Z-buffer. `+` / `-` escala das pétalas. Espaço gira sozinho. `M` imprime as matrizes. Esc sai.

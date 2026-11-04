@@ -1,11 +1,8 @@
 #ifndef PETAL_H
 #define PETAL_H
 
-/*
- * Uma pétala no espaço local: elipses concêntricas centradas na origem,
- * alongadas em +Y. Quem desenha a cena gira e translada quatro cópias.
- */
+/* Malha de uma pétala no +Y. Em main.c giramos e transladamos as quatro. */
 
-void petal_draw(void);
+void petal_draw(const float dark[3], const float light[3]);
 
 #endif

@@ -8,13 +8,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-/*
- * Protótipo da cena. A logo da referência vira quatro pétalas de tubos
- * concêntricos, uma placa atrás e a palavra em pixels.
- * O roteiro de estudo está em docs/PLANO.md.
- */
+#define PETAL_OUTWARD 0.44f
+#define PETAL_SCALE_LARGE 1.10f
+#define PETAL_SCALE_SMALL 0.84f
+#define CAM_DIST_DEFAULT 5.2f
+#define CAM_DIST_MIN 1.6f
+#define CAM_DIST_MAX 16.f
 
-#define PETAL_OUTWARD 0.62f
+#ifndef GL_MULTISAMPLE
+#define GL_MULTISAMPLE 0x809D
+#endif
 
 static int g_width = 960;
 static int g_height = 720;
@@ -25,12 +28,19 @@ static int g_lighting = 1;
 static int g_depth = 1;
 static int g_spin = 0;
 static float g_yaw = -32.f;
-static float g_pitch = 24.f;
+static float g_pitch = 26.f;
+static float g_cam_dist = CAM_DIST_DEFAULT;
 static float g_petal_scale = 1.f;
+static int g_dragging = 0;
+static int g_last_x = 0;
+static int g_last_y = 0;
 
-static const float kOrange[3] = {0.89f, 0.45f, 0.13f};
-static const float kGreen[3] = {0.42f, 0.55f, 0.18f};
-static const float kText[3] = {0.33f, 0.48f, 0.16f};
+/* Pegamos esses tons da foto da logo. */
+static const float kOrangeDark[3] = {215.f / 255.f, 126.f / 255.f, 42.f / 255.f};
+static const float kOrangeLight[3] = {234.f / 255.f, 168.f / 255.f, 85.f / 255.f};
+static const float kGreenDark[3] = {96.f / 255.f, 134.f / 255.f, 72.f / 255.f};
+static const float kGreenLight[3] = {150.f / 255.f, 186.f / 255.f, 118.f / 255.f};
+static const float kText[3] = {102.f / 255.f, 128.f / 255.f, 72.f / 255.f};
 
 static void idle(void);
 static void refresh_title(void);
@@ -50,19 +60,13 @@ static void refresh_title(void)
 
 static void setup_lighting(void)
 {
-    float global_ambient[] = {0.28f, 0.28f, 0.26f, 1.f};
-    float ambient[] = {0.12f, 0.12f, 0.10f, 1.f};
-    float diffuse[] = {0.85f, 0.85f, 0.80f, 1.f};
-    float specular[] = {0.75f, 0.75f, 0.70f, 1.f};
-    float mat_specular[] = {0.45f, 0.45f, 0.40f, 1.f};
+    float global_ambient[] = {0.46f, 0.46f, 0.44f, 1.f};
+    float ambient[] = {0.22f, 0.22f, 0.20f, 1.f};
+    float diffuse[] = {0.88f, 0.88f, 0.84f, 1.f};
+    float specular[] = {0.28f, 0.28f, 0.26f, 1.f};
+    float mat_specular[] = {0.22f, 0.22f, 0.20f, 1.f};
 
-    /*
-     * Phong no pipeline fixo: ambiente + difusa (N·L) + especular.
-     * A OpenGL clássica calcula o especular com o vetor halfway
-     * (Blinn-Phong). É a rotina de iluminação de Phong disponível aqui.
-     * Gouraud é glShadeModel(GL_SMOOTH): a cor sai por vértice e a GPU
-     * interpola dentro do triângulo. GL_FLAT deixa um valor só por face.
-     */
+    /* Phong pela OpenGL. Na tecla G trocamos Gouraud (SMOOTH) por FLAT. */
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);
     glEnable(GL_NORMALIZE);
@@ -75,39 +79,13 @@ static void setup_lighting(void)
     glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
     glLightfv(GL_LIGHT0, GL_SPECULAR, specular);
     glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, mat_specular);
-    glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 36.f);
+    glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 48.f);
     glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
-}
-
-static void draw_card(void)
-{
-    float t[16];
-    float s[16];
-
-    /* Quadrado unitário. A escala é o que dá o tamanho da placa. */
-    glDisable(GL_LIGHTING);
-    glColor3f(0.93f, 0.91f, 0.87f);
-    glPushMatrix();
-    mat4_make_translation(t, 0.f, -0.12f, -0.35f);
-    apply_matrix(t);
-    mat4_make_scale(s, 3.9f, 3.9f, 1.f);
-    apply_matrix(s);
-    glBegin(GL_QUADS);
-    glNormal3f(0.f, 0.f, 1.f);
-    glVertex3f(-0.5f, -0.5f, 0.f);
-    glVertex3f(0.5f, -0.5f, 0.f);
-    glVertex3f(0.5f, 0.5f, 0.f);
-    glVertex3f(-0.5f, 0.5f, 0.f);
-    glEnd();
-    glPopMatrix();
-    if (g_lighting) {
-        glEnable(GL_LIGHTING);
-    }
 }
 
 static void draw_petals(void)
 {
-    /* -45 e +45 ficam em cima (laranja); 135 e 225 ficam embaixo (verde). */
+    /* Quatro cópias da mesma pétala: laranja em cima, verde embaixo. */
     const float degrees[] = {-45.f, 45.f, 135.f, 225.f};
     int i;
 
@@ -117,27 +95,24 @@ static void draw_petals(void)
         float t[16];
         float s[16];
         int upper = cosf(radians) > 0.f;
+        /* Na referência uma diagonal é grande e a outra pequena. */
+        int large = sinf(2.f * radians) > 0.f;
+        float petal_size = g_petal_scale * (large ? PETAL_SCALE_LARGE : PETAL_SCALE_SMALL);
+        float out = PETAL_OUTWARD * (large ? 1.04f : 0.90f);
 
-        if (upper) {
-            glColor3f(kOrange[0], kOrange[1], kOrange[2]);
-        } else {
-            glColor3f(kGreen[0], kGreen[1], kGreen[2]);
-        }
-
-        /*
-         * apply(Rz); apply(T); apply(S) produz v' = Rz * T * S * v.
-         * A escala age primeiro, no espaço da pétala; depois a translação
-         * empurra a pétala para fora; a rotação em Z manda o conjunto
-         * para a diagonal.
-         */
+        /* Escalamos, empurramos no +Y e giramos em Z. Ordem: v' = Rz * T * S * v. */
         glPushMatrix();
         mat4_make_rotation_z(rz, radians);
         apply_matrix(rz);
-        mat4_make_translation(t, 0.f, PETAL_OUTWARD, 0.f);
+        mat4_make_translation(t, 0.f, out, 0.f);
         apply_matrix(t);
-        mat4_make_scale(s, g_petal_scale, g_petal_scale, g_petal_scale);
+        mat4_make_scale(s, petal_size, petal_size, petal_size);
         apply_matrix(s);
-        petal_draw();
+        if (upper) {
+            petal_draw(kOrangeDark, kOrangeLight);
+        } else {
+            petal_draw(kGreenDark, kGreenLight);
+        }
         glPopMatrix();
     }
 }
@@ -146,15 +121,11 @@ static void draw_text(void)
 {
     float t[16];
 
-    glDisable(GL_LIGHTING);
     glPushMatrix();
-    mat4_make_translation(t, 0.f, -1.42f, 0.f);
+    mat4_make_translation(t, 0.f, -1.42f, 0.02f);
     apply_matrix(t);
-    wordmark_draw(0.f, 0.f, 0.038f, kText[0], kText[1], kText[2]);
+    wordmark_draw(0.f, 0.f, 0.0185f, kText[0], kText[1], kText[2]);
     glPopMatrix();
-    if (g_lighting) {
-        glEnable(GL_LIGHTING);
-    }
 }
 
 static void display(void)
@@ -164,34 +135,41 @@ static void display(void)
     float cam[16];
     float rx[16];
     float ry[16];
-    float light_pos[] = {1.5f, 2.2f, 4.0f, 1.f};
+    float light_pos[] = {1.8f, 2.4f, 5.0f, 1.f};
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glViewport(0, 0, g_width, g_height);
     glPolygonMode(GL_FRONT_AND_BACK, g_wire ? GL_LINE : GL_FILL);
     glShadeModel(g_smooth ? GL_SMOOTH : GL_FLAT);
+    /* Tecla Z: visibilidade. Sem o teste, o último desenho tapa o da frente. */
     if (g_depth) {
         glEnable(GL_DEPTH_TEST);
     } else {
         glDisable(GL_DEPTH_TEST);
     }
+    if (g_lighting) {
+        glEnable(GL_LIGHTING);
+    } else {
+        glDisable(GL_LIGHTING);
+    }
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
+    /* Teclas P e O: as duas projeções, com a matriz que montamos. */
     if (g_perspective) {
         mat4_make_perspective(proj, 40.f * MATH3D_PI / 180.f, aspect, 0.1f, 80.f);
     } else {
-        float half = 2.35f;
+        float half = 0.45f * g_cam_dist;
         mat4_make_ortho(proj, -half * aspect, half * aspect, -half, half, -20.f, 20.f);
     }
     apply_matrix(proj);
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    mat4_make_translation(cam, 0.f, 0.25f, -6.6f);
+    mat4_make_translation(cam, 0.f, 0.18f, -g_cam_dist);
     apply_matrix(cam);
 
-    /* Luz no mundo, antes da órbita: o brilho caminha quando o objeto gira. */
+    /* Colocamos a luz antes de orbitar, senão ela gira junto com o modelo. */
     glLightfv(GL_LIGHT0, GL_POSITION, light_pos);
 
     mat4_make_rotation_x(rx, g_pitch * MATH3D_PI / 180.f);
@@ -199,7 +177,6 @@ static void display(void)
     mat4_make_rotation_y(ry, g_yaw * MATH3D_PI / 180.f);
     apply_matrix(ry);
 
-    draw_card();
     draw_petals();
     draw_text();
 
@@ -261,6 +238,39 @@ static void print_matrices(void)
     printf("Com escala 1.2:  aproximadamente (-0.269, 0.608, 0)\n\n");
 }
 
+static void clamp_camera(void)
+{
+    if (g_cam_dist < CAM_DIST_MIN) {
+        g_cam_dist = CAM_DIST_MIN;
+    }
+    if (g_cam_dist > CAM_DIST_MAX) {
+        g_cam_dist = CAM_DIST_MAX;
+    }
+    if (g_pitch > 89.f) {
+        g_pitch = 89.f;
+    }
+    if (g_pitch < -89.f) {
+        g_pitch = -89.f;
+    }
+}
+
+static void zoom_by(float delta)
+{
+    g_cam_dist += delta;
+    clamp_camera();
+}
+
+static void set_view(float yaw, float pitch, int reset_zoom)
+{
+    g_yaw = yaw;
+    g_pitch = pitch;
+    g_spin = 0;
+    sync_spin();
+    if (reset_zoom) {
+        g_cam_dist = CAM_DIST_DEFAULT;
+    }
+}
+
 static void keyboard(unsigned char key, int x, int y)
 {
     (void)x;
@@ -279,11 +289,34 @@ static void keyboard(unsigned char key, int x, int y)
         break;
     case 'f':
     case 'F':
-        g_yaw = 0.f;
-        g_pitch = 0.f;
-        g_spin = 0;
-        sync_spin();
+    case '1':
+        set_view(0.f, 0.f, 0);
         printf("Vista frontal, para comparar com a referencia.\n");
+        break;
+    case '2':
+        set_view(-32.f, 26.f, 0);
+        printf("Vista 3/4.\n");
+        break;
+    case '3':
+        set_view(90.f, 8.f, 0);
+        printf("Vista de lado. O tubo das petalas aparece em volume.\n");
+        break;
+    case '4':
+        set_view(0.f, 80.f, 0);
+        printf("Vista de cima.\n");
+        break;
+    case 'r':
+    case 'R':
+        set_view(-32.f, 26.f, 1);
+        printf("Camera reiniciada.\n");
+        break;
+    case ']':
+        zoom_by(-0.35f);
+        printf("Zoom in, distancia %.2f\n", g_cam_dist);
+        break;
+    case '[':
+        zoom_by(0.35f);
+        printf("Zoom out, distancia %.2f\n", g_cam_dist);
         break;
     case 'w':
     case 'W':
@@ -364,16 +397,56 @@ static void special_keys(int key, int x, int y)
     case GLUT_KEY_DOWN:
         g_pitch -= 4.f;
         break;
+    case GLUT_KEY_PAGE_UP:
+        zoom_by(-0.45f);
+        break;
+    case GLUT_KEY_PAGE_DOWN:
+        zoom_by(0.45f);
+        break;
     default:
         break;
     }
 
-    if (g_pitch > 80.f) {
-        g_pitch = 80.f;
+    clamp_camera();
+    glutPostRedisplay();
+}
+
+static void mouse(int button, int state, int x, int y)
+{
+    if (button == GLUT_LEFT_BUTTON) {
+        g_dragging = (state == GLUT_DOWN);
+        g_last_x = x;
+        g_last_y = y;
     }
-    if (g_pitch < -80.f) {
-        g_pitch = -80.f;
+    if (button == 3 && state == GLUT_DOWN) {
+        zoom_by(-0.28f);
+        glutPostRedisplay();
     }
+    if (button == 4 && state == GLUT_DOWN) {
+        zoom_by(0.28f);
+        glutPostRedisplay();
+    }
+}
+
+static void motion(int x, int y)
+{
+    if (!g_dragging) {
+        return;
+    }
+    g_yaw += (float)(x - g_last_x) * 0.35f;
+    g_pitch += (float)(y - g_last_y) * 0.35f;
+    g_last_x = x;
+    g_last_y = y;
+    clamp_camera();
+    glutPostRedisplay();
+}
+
+static void mouse_wheel(int wheel, int direction, int x, int y)
+{
+    (void)wheel;
+    (void)x;
+    (void)y;
+    zoom_by(direction > 0 ? -0.32f : 0.32f);
     glutPostRedisplay();
 }
 
@@ -383,6 +456,7 @@ static void init_gl(void)
     glClearDepth(1.0);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
+    glEnable(GL_MULTISAMPLE);
     glShadeModel(GL_SMOOTH);
     setup_lighting();
 }
@@ -390,8 +464,13 @@ static void init_gl(void)
 static void print_help(void)
 {
     printf("e-colab — protótipo OpenGL. Guia: docs/PLANO.md\n");
-    printf("Setas     orbitam o modelo\n");
-    printf("F         vista frontal\n");
+    printf("Arrastar  orbitam o modelo (ou setas)\n");
+    printf("Roda / [ ] / PageUp PageDown   zoom\n");
+    printf("1 ou F    vista frontal\n");
+    printf("2         vista 3/4\n");
+    printf("3         vista de lado\n");
+    printf("4         vista de cima\n");
+    printf("R         reinicia a camera\n");
     printf("P / O     perspectiva / ortogonal\n");
     printf("W         aramado / preenchido\n");
     printf("G         Gouraud / tonalizacao constante\n");
@@ -410,7 +489,7 @@ int main(int argc, char **argv)
     SetConsoleOutputCP(CP_UTF8);
 #endif
     glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH | GLUT_MULTISAMPLE);
     glutInitWindowSize(g_width, g_height);
     glutCreateWindow("e-colab");
     init_gl();
@@ -420,6 +499,9 @@ int main(int argc, char **argv)
     glutReshapeFunc(reshape);
     glutKeyboardFunc(keyboard);
     glutSpecialFunc(special_keys);
+    glutMouseFunc(mouse);
+    glutMotionFunc(motion);
+    glutMouseWheelFunc(mouse_wheel);
     glutMainLoop();
     return 0;
 }

@@ -19,4 +19,4 @@ O executável estará disponível na pasta build, como ecolab_logo
 
 ## Teclas
 
-Arraste o mouse ou use as setas para orbitar. Roda do mouse, `[` `]` ou Page Up/Down dão zoom. `1`/`F` frente, `2` 3/4, `3` lado, `4` cima, `R` reinicia. `P` / `O` perspectiva e ortogonal. `W` aramado. `G` Gouraud. `L` luz. `D` Bresenham ou DDA. `Z` Z-buffer. `+` / `-` escala das pétalas. Espaço gira sozinho. `M` imprime as matrizes. Esc sai.
+Arraste o mouse ou use as setas para orbitar. Roda do mouse, `[` `]` ou Page Up/Down dão zoom. `1`/`F` frente, `2` 3/4, `3` lado, `4` cima, `R` reinicia. `P` / `O` perspectiva e ortogonal. `W` aramado. `G` Gouraud. `L` luz. `Z` Z-buffer. `+` / `-` escala das pétalas. Espaço gira sozinho. `M` imprime as matrizes. Esc sai.

@@ -11,9 +11,7 @@ find_package(GLUT REQUIRED)
 add_executable(ecolab_exemplo
     examples/main.c
     examples/math3d.c
-    examples/bresenham.c
     examples/petal.c
-    examples/wordmark.c
 )
 
 target_include_directories(ecolab_exemplo PRIVATE examples)

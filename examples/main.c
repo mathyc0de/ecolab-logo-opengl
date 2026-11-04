@@ -2,7 +2,6 @@
 
 #include "math3d.h"
 #include "petal.h"
-#include "wordmark.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -40,7 +39,6 @@ static const float kOrangeDark[3] = {215.f / 255.f, 126.f / 255.f, 42.f / 255.f}
 static const float kOrangeLight[3] = {234.f / 255.f, 168.f / 255.f, 85.f / 255.f};
 static const float kGreenDark[3] = {96.f / 255.f, 134.f / 255.f, 72.f / 255.f};
 static const float kGreenLight[3] = {150.f / 255.f, 186.f / 255.f, 118.f / 255.f};
-static const float kText[3] = {102.f / 255.f, 128.f / 255.f, 72.f / 255.f};
 
 static void idle(void);
 static void refresh_title(void);
@@ -49,9 +47,8 @@ static void refresh_title(void)
 {
     char title[160];
 
-    snprintf(title, sizeof title, "e-colab | %s | %s | Gouraud %s | luz %s | z %s",
+    snprintf(title, sizeof title, "e-colab | %s | Gouraud %s | luz %s | z %s",
              g_perspective ? "perspectiva" : "ortogonal",
-             wordmark_algorithm_name(),
              g_smooth ? "on" : "off",
              g_lighting ? "on" : "off",
              g_depth ? "on" : "off");
@@ -117,17 +114,6 @@ static void draw_petals(void)
     }
 }
 
-static void draw_text(void)
-{
-    float t[16];
-
-    glPushMatrix();
-    mat4_make_translation(t, 0.f, -1.42f, 0.02f);
-    apply_matrix(t);
-    wordmark_draw(0.f, 0.f, 0.0185f, kText[0], kText[1], kText[2]);
-    glPopMatrix();
-}
-
 static void display(void)
 {
     float proj[16];
@@ -178,7 +164,6 @@ static void display(void)
     apply_matrix(ry);
 
     draw_petals();
-    draw_text();
 
     glutSwapBuffers();
 }
@@ -333,10 +318,6 @@ static void keyboard(unsigned char key, int x, int y)
         g_lighting = !g_lighting;
         printf("Iluminacao %s.\n", g_lighting ? "ligada" : "desligada");
         break;
-    case 'd':
-    case 'D':
-        printf("Raster do texto: %s.\n", wordmark_toggle_algorithm());
-        break;
     case 'z':
     case 'Z':
         g_depth = !g_depth;
@@ -475,7 +456,6 @@ static void print_help(void)
     printf("W         aramado / preenchido\n");
     printf("G         Gouraud / tonalizacao constante\n");
     printf("L         liga / desliga a luz\n");
-    printf("D         Bresenham / DDA no texto\n");
     printf("Z         liga / desliga o Z-buffer\n");
     printf("+ / -     escala das petalas\n");
     printf("Espaco    rotacao automatica\n");

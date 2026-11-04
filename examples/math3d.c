@@ -5,6 +5,7 @@
 #include <math.h>
 #include <stdio.h>
 
+/* Diagonal 1. As outras casas ficam 0. Índice: coluna * 4 + linha. */
 void mat4_identity(float m[16])
 {
     int i;
@@ -21,7 +22,7 @@ void mat4_multiply(float out[16], const float a[16], const float b[16])
     int col;
     int row;
 
-    /* Multiplicamos a*b com a coluna à direita, como a OpenGL faz. */
+    /* a*b, coluna à direita, como a OpenGL. O temporário deixa out ser a ou b. */
     for (col = 0; col < 4; col++) {
         for (row = 0; row < 4; row++) {
             r[col * 4 + row] =
@@ -37,6 +38,7 @@ void mat4_multiply(float out[16], const float a[16], const float b[16])
     }
 }
 
+/* A translação mora na última coluna: índices 12, 13 e 14. */
 void mat4_make_translation(float m[16], float tx, float ty, float tz)
 {
     mat4_identity(m);
@@ -45,6 +47,7 @@ void mat4_make_translation(float m[16], float tx, float ty, float tz)
     m[14] = tz;
 }
 
+/* Escala na diagonal. Fora dela a matriz continua identidade. */
 void mat4_make_scale(float m[16], float sx, float sy, float sz)
 {
     mat4_identity(m);
@@ -53,6 +56,7 @@ void mat4_make_scale(float m[16], float sx, float sy, float sz)
     m[10] = sz;
 }
 
+/* Rotação em X: o bloco 2×2 mexe em Y e Z. Ângulo em radianos. */
 void mat4_make_rotation_x(float m[16], float radians)
 {
     float c = cosf(radians);
@@ -65,6 +69,7 @@ void mat4_make_rotation_x(float m[16], float radians)
     m[10] = c;
 }
 
+/* Rotação em Y: o bloco mexe em X e Z. */
 void mat4_make_rotation_y(float m[16], float radians)
 {
     float c = cosf(radians);
@@ -77,6 +82,7 @@ void mat4_make_rotation_y(float m[16], float radians)
     m[10] = c;
 }
 
+/* Rotação em Z, anti-horária olhando a tela. É a que posiciona as pétalas. */
 void mat4_make_rotation_z(float m[16], float radians)
 {
     float c = cosf(radians);
@@ -99,7 +105,11 @@ void mat4_make_perspective(float m[16], float fovy_rad, float aspect,
         m[i] = 0.f;
     }
 
-    /* Montamos a perspectiva na mão. m[11]=-1 manda -z para w, aí a GPU divide. */
+    /*
+     * Perspectiva na mão, a mesma do antigo gluPerspective.
+     * f = 1/tan(fovy/2). m[11] = -1 manda -z para w; a GPU divide x,y,z por w,
+     * e é essa divisão que faz o longe ficar menor.
+     */
     m[0] = f / aspect;
     m[5] = f;
     m[10] = (zfar + znear) / (znear - zfar);
@@ -116,6 +126,7 @@ void mat4_make_ortho(float m[16], float left, float right, float bottom,
         m[i] = 0.f;
     }
 
+    /* w continua 1, então longe e perto saem do mesmo tamanho. */
     m[0] = 2.f / (right - left);
     m[5] = 2.f / (top - bottom);
     m[10] = -2.f / (zfar - znear);
@@ -125,6 +136,7 @@ void mat4_make_ortho(float m[16], float left, float right, float bottom,
     m[15] = 1.f;
 }
 
+/* Ponto como coluna, com w = 1. Não faz a divisão perspectiva; a GPU faz. */
 void mat4_transform_point(const float m[16], float x, float y, float z,
                           float *ox, float *oy, float *oz)
 {
@@ -133,6 +145,7 @@ void mat4_transform_point(const float m[16], float x, float y, float z,
     *oz = m[2] * x + m[6] * y + m[10] * z + m[14];
 }
 
+/* Imprime por linha, do jeito que se escreve no papel. A memória segue por coluna. */
 void mat4_print(const char *name, const float m[16])
 {
     int row;

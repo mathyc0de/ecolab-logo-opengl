@@ -2,12 +2,10 @@
 #define MATH3D_H
 
 /*
- * Matrizes 4x4 nossas, no mesmo layout da OpenGL: coluna na memória.
- * Linha r, coluna c fica em m[c*4+r]. apply_matrix chama glMultMatrixf,
- * e glMultMatrixf faz M = M * A. Por isso a última aplicada age primeiro
- * no vértice.
- *
- * Não usamos glTranslate, glRotate, glScale, glOrtho nem gluPerspective.
+ * Declara as matrizes. Quem preenche cada uma é math3d.c.
+ * apply_matrix é a única que entrega a matriz à OpenGL, por glMultMatrixf.
+ * A memória é por coluna: linha r, coluna c fica em m[c*4+r].
+ * glMultMatrixf faz M = M × A, então a última aplicada age primeiro no vértice.
  */
 
 #define MATH3D_PI 3.14159265358979323846f

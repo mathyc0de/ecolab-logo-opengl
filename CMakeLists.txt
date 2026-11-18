@@ -9,6 +9,7 @@ find_package(OpenGL REQUIRED)
 find_package(GLUT REQUIRED)
 
 add_executable(ecolab_opengl
+    src/letter_e.c
     src/main.c
     src/math3d.c
     src/petal.c

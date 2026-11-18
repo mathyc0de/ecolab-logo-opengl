@@ -1,5 +1,6 @@
 #include "gl_platform.h"
 
+#include "letter_e.h"
 #include "math3d.h"
 #include "petal.h"
 
@@ -15,6 +16,10 @@
 #define CAM_DIST_DEFAULT 5.2f
 #define CAM_DIST_MIN 1.6f
 #define CAM_DIST_MAX 16.f
+/* O "e" de Bresenham: cada célula da grade ocupa E_CELL x E_CELL pixels de tela. */
+#define E_CELL 5
+#define E_RADIUS 12 /* em células */
+#define E_MARGIN 4  /* células entre o e e a borda de baixo */
 
 #ifndef GL_MULTISAMPLE
 #define GL_MULTISAMPLE 0x809D
@@ -30,6 +35,7 @@ static int g_smooth = 1;      /* G: Gouraud (GL_SMOOTH) ou constante (GL_FLAT) *
 static int g_lighting = 1;    /* L */
 static int g_depth = 1;       /* Z: teste de profundidade */
 static int g_spin = 0;        /* espaço: gira sozinho */
+static int g_letter_e = 1;    /* E: o "e" rasterizado com Bresenham */
 
 /* Órbita. A cena abre em 3/4 para o volume aparecer. */
 static float g_yaw = -32.f;
@@ -125,6 +131,28 @@ static void draw_petals(void)
     }
 }
 
+static void draw_letter_e(void)
+{
+    float proj[16];
+    int cols = g_width / E_CELL;
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    mat4_make_ortho(proj, 0.f, (float)g_width / E_CELL, 0.f, (float)g_height / E_CELL,
+                    -1.f, 1.f);
+    apply_matrix(proj);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    glDisable(GL_LIGHTING);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_MULTISAMPLE);
+    glPointSize((float)E_CELL);
+    glColor3fv(kGreenDark);
+    letter_e_draw(cols / 2, E_RADIUS + E_MARGIN, E_RADIUS);
+    glEnable(GL_MULTISAMPLE);
+}
+
 static void display(void)
 {
     float proj[16];
@@ -179,6 +207,9 @@ static void display(void)
     apply_matrix(ry);
 
     draw_petals();
+    if (g_letter_e) {
+        draw_letter_e();
+    }
 
     glutSwapBuffers();
 }
@@ -354,6 +385,10 @@ static void keyboard(unsigned char key, int x, int y)
     case 'M':
         print_matrices();
         break;
+    case 'e': /* o "e" de Bresenham */
+    case 'E':
+        g_letter_e = !g_letter_e;
+        break;
     case 27:
         exit(0);
         break;
@@ -454,6 +489,7 @@ static void print_help(void)
     printf("+ / -     escala das petalas\n");
     printf("Espaco    rotacao automatica\n");
     printf("M         imprime matrizes no console\n");
+    printf("E         mostra / esconde o \"e\" feito com Bresenham\n");
     printf("Esc       sai\n");
 }
 

@@ -62,8 +62,9 @@ static void ellipse_frame(float t, float rx, float ry, float z0, float z1,
     /* Direção em que o traço está andando. */
     /* É a derivada do ponto, (-rx sen t, ry cos t, dz/dt), com comprimento 1. */
     normalize3(&tx, &ty, &tz);
-    /* Direção para fora do oval. */
-    /* Gira a direção do traço 90° no plano: (-ty, tx, 0), também com comprimento 1. */
+    /* Direção para dentro do oval, de lado em relação ao traço. */
+    /* Gira a direção do traço 90° no plano: (-ty, tx, 0), também com comprimento 1.
+       O sentido não importa: o tubo dá a volta inteira em torno do traço. */
     *nx = -ty;
     *ny = tx;
     *nz = 0.f;

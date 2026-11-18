@@ -15,7 +15,7 @@ cmake -S . -B build
 cmake --build build
 ```
 
-O executável estará disponível na pasta build, como ecolab_logo
+O executável estará disponível na pasta build, como `ecolab_opengl`.
 
 ## Teclas
 

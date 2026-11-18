@@ -15,11 +15,6 @@
 
 #include <GL/freeglut.h>
 
-#ifndef GL_LIGHT_MODEL_COLOR_CONTROL
-#define GL_LIGHT_MODEL_COLOR_CONTROL 0x81F8
-#define GL_SEPARATE_SPECULAR_COLOR 0x81FA
-#endif
-
 #ifndef GLUT_MULTISAMPLE
 #define GLUT_MULTISAMPLE 128
 #endif

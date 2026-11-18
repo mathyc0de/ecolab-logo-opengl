@@ -88,8 +88,6 @@ static void setup_lighting(void)
     glLightfv(GL_LIGHT0, GL_SPECULAR, specular);
     glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, mat_specular);
     glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 48.f); /* o n da fórmula */
-    /* Soma o brilho depois da cor, senão o laranja engole o especular. */
-    glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
 }
 
 static void draw_petals(void)
@@ -440,7 +438,7 @@ static void init_gl(void)
 
 static void print_help(void)
 {
-    printf("e-colab — protótipo OpenGL. Guia: docs/PLANO.md\n");
+    printf("e-colab — protótipo OpenGL. Guia: docs/CONCEITOS.md\n");
     printf("Arrastar  orbitam o modelo (ou setas)\n");
     printf("Roda / [ ] / PageUp PageDown   zoom\n");
     printf("1 ou F    vista frontal\n");
